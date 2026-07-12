@@ -1,0 +1,82 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+secrets.toml
+
+# Testing and coverage
+htmlcov/
+.toml/
+.pytest_cache/
+.regression/
+pytestdebug.log
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.py,cover
+
+# Inline type checker cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Ruff / Linters cache
+.ruff_cache/
+
+# Database files (if using local SQLite/databases)
+*.db
+*.sqlite3
+*.sqlite
+
+# Log files
+*.log
+
+# FastAPI / Uvicorn / Gunicorn specific logs or process IDs
+*.pid
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
