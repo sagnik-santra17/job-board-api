@@ -44,7 +44,7 @@ async def login(
 
 
 #-------------user delete router------------#
-@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/me", status_code=status.HTTP_200_OK)
 async def delete_user(
     data: UserDelete,
     service: user_service_dependency,

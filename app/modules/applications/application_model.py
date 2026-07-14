@@ -1,11 +1,16 @@
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, ForeignKey, Enum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import Enum as PyEnum
 
 
 from app.core.database import Base
 
+
+if TYPE_CHECKING:
+    from app.modules.users.user_model import User
+    from app.modules.jobs.job_model import JobPost
 
 # ------------------------------------------------------------------------------------------------------------ #
 
@@ -31,5 +36,7 @@ class JobApplication(Base):
     )
 
     # Relationships
-    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.job_id"), nullable=False)
     employee_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    employee: Mapped["User"] = relationship("User", back_populates="applications")
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.job_id"), nullable=False)
+    job_post: Mapped["JobPost"] = relationship("JobPost", back_populates="applications")
