@@ -15,6 +15,7 @@ from app.utils.user_utils import invalid_credentials
 
 if TYPE_CHECKING:
     from app.modules.users.user_service import UserService
+    from app.modules.companies.company_service import CompanyService
     from app.modules.users.user_model import User
     
 
@@ -38,7 +39,14 @@ def get_user_service(db: db_dependency) -> "UserService":
 user_service_dependency = Annotated["UserService", Depends(get_user_service)]
 
 
+# ------- Company dependency service injection -------- #
+def get_company_service(db: db_dependency) -> "CompanyService":
+    from app.modules.companies.company_service import CompanyService
+    from app.modules.companies.company_repository import CompanyRepository
+    repo = CompanyRepository(db)
+    return CompanyService(repo)
 
+company_service_dependency = Annotated["CompanyService", Depends(get_company_service)]
 
 
 

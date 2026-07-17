@@ -111,15 +111,14 @@ class CompanyService:
     
 
     # Find a company
-    async def find_company(self, company_id: int) -> Companies | None:
+    async def find_company(self, company_id: int, manager_id: int) -> Companies:
 
-        logger.info(f"Service: Attempting to find company with id: {company_id}")
+        logger.info(f"Service: Manager {manager_id} fetching company {company_id}")
 
-        company = await self.repo.find_company_by_id(company_id)
-        valid_company = validate_company_id_exists(company)
+        valid_company = await get_and_validate_company_ownership(self.repo, company_id, manager_id)
 
-        logger.info(f"Service: Successfully found company with id: {company_id}")
-
+        logger.info(f"Service: Successfully found company {company_id}")
+        
         return valid_company
     
 
