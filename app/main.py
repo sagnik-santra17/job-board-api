@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from app.modules.users.user_router import router as user_router
+from app.modules.companies.company_router import router as company_router
 from app.core.database import async_engine
 
 
@@ -19,25 +20,17 @@ from app.modules.applications.application_model import JobApplication
 # -------------------------------------------------------------------------------------------------------------- #
 
 
-# ---------- Logging Setup: Both console and file ---------- #
+# ---------- Logging Setup (file only, like your previous project) ---------- #
+logging.basicConfig(
+    filename="app.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+logging.getLogger("watchfiles").setLevel(logging.WARNING)
+logging.getLogger("passlib").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
-
-logging.basicConfig(level=logging.INFO)  # no filename
-
-# File handler
-file_handler = logging.FileHandler("app.log")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-
-# Console handler
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-root_logger.addHandler(file_handler)
-root_logger.addHandler(console_handler)
+logger.info("Application starting up...")
 
 
 # ---------- Main FASTAPI App with Lifespan ---------- #
@@ -92,12 +85,11 @@ async def add_security_headers(request: Request, call_next):
     """Add standard security headers to all responses."""
     response = await call_next(request)
 
-    response.headers["X-Frame-Options"] = "DENY"                          # Prevent clickjacking
-    response.headers["X-Content-Type-Options"] = "nosniff"               # Prevent MIME sniffing
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"  # Enforce HTTPS
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-    # Allow Swagger UI to load scripts/styles from CDN
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -110,10 +102,8 @@ async def add_security_headers(request: Request, call_next):
 
 # ---------- Global Exception Handlers ---------- #
 
-# Handler for HTTPException (e.g., 401, 404, 409)
 @app.exception_handler(HTTPException)
 async def global_http_exception_handler(request: Request, exc: HTTPException):
-    """Log 401s specially and return standard JSON error response."""
     if exc.status_code == 401:
         logger.warning(
             f"Security Warning: Unauthorized {request.method} access to '{request.url.path}'. "
@@ -124,10 +114,8 @@ async def global_http_exception_handler(request: Request, exc: HTTPException):
         content={"detail": exc.detail}
     )
 
-# Catch-all for any other unhandled exceptions (prevents 500 without traceback)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Log any uncaught exception with full traceback and return 500."""
     logger.error(f"Unhandled exception on {request.method} {request.url.path}", exc_info=True)
     return JSONResponse(
         status_code=500,
@@ -137,6 +125,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # ---------- Include Routers ---------- #
 app.include_router(user_router)
+app.include_router(company_router)
 
 
 # ---------- Root Endpoint ---------- #

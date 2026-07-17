@@ -35,6 +35,8 @@ class CompanyService:
         
 
         company_dict = data.model_dump()
+        company_dict["company_website"] = str(company_dict["company_website"]) if company_dict.get("company_website") else None
+        
         new_company = Companies(**company_dict, manager_id=manager_id)
 
 

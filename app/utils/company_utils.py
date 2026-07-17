@@ -47,9 +47,9 @@ def validate_company_id_exists(company: Companies | None) -> Companies:
 
 
 # -------- Getting and validating company ownership -------- #
-def get_and_validate_company_ownership(repo, company_id: int, manager_id: int) -> Companies:
+async def get_and_validate_company_ownership(repo, company_id: int, manager_id: int) -> Companies:
 
-    company = repo.find_company_by_id(company_id)
+    company = await repo.find_company_by_id(company_id)
 
     if company.manager_id != manager_id:
         raise HTTPException(
