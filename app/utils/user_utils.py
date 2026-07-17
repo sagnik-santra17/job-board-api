@@ -1,10 +1,15 @@
-#global imports
 import logging
 from fastapi import HTTPException, status
-#local imports
+
+
 from app.modules.users.user_model import User
 
+
+# ---------------------------------------------------------------------------------------------------------- #
+
+
 logger = logging.getLogger(__name__)
+
 
 #--------checking if username already exists---------#
 def validate_username_check(user: User | None, username: str) -> None:
@@ -24,7 +29,7 @@ def validate_email_check(user: User | None, email: str) -> None:
             detail=f"User with email {email} already exists"
         )
 
-#--------checking if the entered user id is valid---------#
+#--------checking if the entered user id is valid/if the user exists---------#
 def validate_user_id_exists(user: User | None) -> User | None:
     if user is None:
         logger.warning("User lookup failed: The requested user ID does not exist.")

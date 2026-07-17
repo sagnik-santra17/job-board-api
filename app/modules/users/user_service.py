@@ -22,6 +22,7 @@ class UserService:
 
     #----------User sign up/creating a new user----------#
     async def create_user(self, data: UserCreate) -> User:
+
         logger.info(f"Service: Processing registration request for username: {data.username}")
         username = await self.repo.find_user_by_username(data.username)
         validate_username_check(username, data.username)
@@ -45,12 +46,14 @@ class UserService:
 
     #----------login/sign in----------#
     async def user_login(self, login_data: UserLogin) -> dict[str, str]:
+
         logger.info(f"Service: Processing login request for username: {login_data.username}")
         valid_user = await self.repo.find_user_by_identifier(login_data.username)
 
         if valid_user is None:
             logger.warning(f"Service: Login failed. Identifier not found: {login_data.username}")
             invalid_credentials()
+
         if not verify_password(login_data.password, valid_user.hashed_password):
             logger.warning(f"Service: Login failed. Password incorrect for identifier: {login_data.username}")
             invalid_credentials()
@@ -66,6 +69,7 @@ class UserService:
 
     #----------User update----------#
     async def user_update(self, data: UserUpdate, user_id: int) -> User:
+
         logger.info(f"Service: Processing update request for user id: {user_id}")
         existing_user = await self.repo.find_user_by_user_id(user_id)
         valid_user = validate_user_id_exists(existing_user)
@@ -111,11 +115,13 @@ class UserService:
             setattr(valid_user, key, value)
 
         logger.info(f"Service: Sending updated fields to database layer for user ID: {user_id}")
+
         return await self.repo.update(valid_user)
 
 
     #----------delete user----------#
     async def user_delete(self, user_id: int, delete_data: UserDelete) -> None:
+
         logger.info(f"Service: Processing delete request for user id: {user_id}")
         existing_user = await self.repo.find_user_by_user_id(user_id)
         valid_user = validate_user_id_exists(existing_user)
@@ -126,16 +132,20 @@ class UserService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect password. Account deletion aborted."
             )
+        
         await self.repo.delete(valid_user)
+
         logger.info(f"Service: Sending deletion confirmation to database layer for user ID: {user_id}")
         return None
 
 
     #--------------get user data----------------#
     async def check_user_profile(self, user_id: int) -> User:
+        
         logger.info(f"Service: Processing profile request for user id: {user_id}")
         existing_user = await self.repo.find_user_by_user_id(user_id)
         valid_user = validate_user_id_exists(existing_user)
 
         logger.info(f"Service: Profile successfully retrieved for user ID: {user_id}")
+
         return valid_user
