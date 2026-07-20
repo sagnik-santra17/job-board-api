@@ -51,10 +51,10 @@ async def get_and_validate_company_ownership(repo, company_id: int, manager_id: 
 
     company = await repo.find_company_by_id(company_id)
 
+    # Check if the company exists in the first place
+    validate_company_id_exists(company) # -> raises 404 if the company does not exist or invalid comnpany id
+    
     if company.manager_id != manager_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="You are not authorized to update this company."
-        )
-
+        raise HTTPException(401, "You are not authorized to access this company.")
+    
     return company

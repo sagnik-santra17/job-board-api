@@ -84,6 +84,10 @@ class CompanyService:
         update_dict = data.model_dump(exclude_unset=True)
         update_dict["manager_id"] = manager_id
 
+        # Convert HttpUrl to string if present
+        if "company_website" in update_dict and update_dict["company_website"] is not None:
+            update_dict["company_website"] = str(update_dict["company_website"])
+
         for key, value in update_dict.items():
             setattr(valid_company, key, value)
 

@@ -1,3 +1,4 @@
+import uuid
 import pytest
 from httpx import AsyncClient
 
@@ -12,23 +13,26 @@ from tests.test_helper import get_token_from_logged_user
 # ------ User registration (201 Created) ------
 @pytest.mark.asyncio
 async def test_register_user_success(client: AsyncClient):
-
+    unique_id = uuid.uuid4().hex[:8]
+    username = f"test_user_{unique_id}"
+    email = f"{username}@email.com"
+    
     user_data = {
-    "username": "test_user",
-    "full_name": "Test User",
-    "email": "test_user@email.com",
-    "password": "test_password123",
-    "confirm_password": "test_password123",
-    "role": "employee",           
-    "is_active": True,             
-}
+        "username": username,
+        "full_name": "Test User",
+        "email": email,
+        "password": "test_password123",
+        "confirm_password": "test_password123",
+        "role": "employee",
+        "is_active": True,
+    }
 
     response = await client.post("/users/", json=user_data)
     assert response.status_code == 201
 
     data = response.json()
-    assert data["username"] == "test_user"
-    assert data["email"] == "test_user@email.com"
+    assert data["username"] == username         
+    assert data["email"] == email                
     assert data["is_active"] is True
     assert "user_id" in data
     assert "password" not in data
@@ -65,14 +69,16 @@ async def test_user_login_success(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_get_profile_success(client: AsyncClient):
     
-    header = await get_token_from_logged_user(client)
+    result = await get_token_from_logged_user(client)
+    header = {"Authorization": result["Authorization"]}
+    username = result["username"]
 
     response = await client.get("/users/me", headers=header)
     assert response.status_code == 200
 
     data = response.json()
-    assert data["username"] == "test_user"
-    assert data["email"] == "test_user@email.com"
+    assert data["username"] == username         
+    assert data["email"] == f"{username}@email.com"
     assert "user_id" in data
 
 
