@@ -7,16 +7,15 @@ from jose import jwt, JWTError
 from jose.exceptions import ExpiredSignatureError
 
 
-
 from app.core.database import get_db
 from app.core.config import settings
-from app.modules.jobs.job_service import JobService
 from app.utils.user_utils import invalid_credentials
 
 
 if TYPE_CHECKING:
     from app.modules.users.user_service import UserService
     from app.modules.companies.company_service import CompanyService
+    from app.modules.jobs.job_service import JobService
     from app.modules.users.user_model import User
     
 
@@ -32,6 +31,7 @@ db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 #-------User dependency service injection--------#
 def get_user_service(db: db_dependency) -> "UserService":
+
     from app.modules.users.user_repository import UserRepository
     from app.modules.users.user_service import UserService
     repo = UserRepository(db)
@@ -42,6 +42,7 @@ user_service_dependency = Annotated["UserService", Depends(get_user_service)]
 
 # ------- Company dependency service injection -------- #
 def get_company_service(db: db_dependency) -> "CompanyService":
+
     from app.modules.companies.company_service import CompanyService
     from app.modules.companies.company_repository import CompanyRepository
     repo = CompanyRepository(db)
@@ -52,10 +53,13 @@ company_service_dependency = Annotated["CompanyService", Depends(get_company_ser
 
 # ------- Job dependency service injection -------- #
 def get_job_service(db: db_dependency) -> "JobService":
-    from app.modules.jobs.job_service import JobService
+
     from app.modules.jobs.job_repository import JobRepository
-    repo = JobRepository(db)
-    return JobService(repo)
+    from app.modules.jobs.job_service import JobService
+    from app.modules.companies.company_repository import CompanyRepository
+    job_repo = JobRepository(db)
+    company_repo = CompanyRepository(db)
+    return JobService(job_repo, company_repo)
 
 job_service_dependency = Annotated["JobService", Depends(get_job_service)]
 
@@ -67,9 +71,10 @@ job_service_dependency = Annotated["JobService", Depends(get_job_service)]
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
 
 async def get_current_user(
-        token: Annotated[str, Depends(oauth2_scheme)],
-        user_service: user_service_dependency
+    token: Annotated[str, Depends(oauth2_scheme)],
+    user_service: user_service_dependency
 ) -> "User":
+    
     user_id = None
 
     try:
