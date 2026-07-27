@@ -10,6 +10,7 @@ from jose.exceptions import ExpiredSignatureError
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.modules.jobs.job_service import JobService
 from app.utils.user_utils import invalid_credentials
 
 
@@ -49,7 +50,14 @@ def get_company_service(db: db_dependency) -> "CompanyService":
 company_service_dependency = Annotated["CompanyService", Depends(get_company_service)]
 
 
+# ------- Job dependency service injection -------- #
+def get_job_service(db: db_dependency) -> "JobService":
+    from app.modules.jobs.job_service import JobService
+    from app.modules.jobs.job_repository import JobRepository
+    repo = JobRepository(db)
+    return JobService(repo)
 
+job_service_dependency = Annotated["JobService", Depends(get_job_service)]
 
 
 
