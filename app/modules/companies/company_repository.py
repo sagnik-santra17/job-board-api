@@ -71,7 +71,7 @@ class CompanyRepository:
 
         if not companies:
             logger.warning(f"Database: No companies with manager id: {manager_id}")
-            return None
+            return []
         return companies
 
 
