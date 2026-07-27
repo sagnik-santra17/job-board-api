@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------------------------------------------- #
 
 
-router = APIRouter(prefix="/companies/{company_id}/jobs", tags=["Companies"])
+router = APIRouter(prefix="/companies/{company_id}/jobs", tags=["Jobs"])
 
 # Current User Dependency
 current_user = Annotated["User", Depends(get_current_user)]

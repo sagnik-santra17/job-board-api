@@ -2,12 +2,16 @@ from contextlib import asynccontextmanager
 import logging
 import time
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 
 from app.modules.users.user_router import router as user_router
 from app.modules.companies.company_router import router as company_router
+from app.modules.jobs.job_router import router as job_router
+
+
 from app.core.database import async_engine
 
 
@@ -102,6 +106,7 @@ async def add_security_headers(request: Request, call_next):
 
 # ---------- Global Exception Handlers ---------- #
 
+# HTTPException (401, 403, 404, 409, etc.)
 @app.exception_handler(HTTPException)
 async def global_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
@@ -114,6 +119,7 @@ async def global_http_exception_handler(request: Request, exc: HTTPException):
         content={"detail": exc.detail}
     )
 
+# Catch-all for everything else (500)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception on {request.method} {request.url.path}", exc_info=True)
@@ -122,10 +128,19 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": "Internal server error"}
     )
 
+# RequestValidationError (422)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
 
 # ---------- Include Routers ---------- #
 app.include_router(user_router)
 app.include_router(company_router)
+app.include_router(job_router)
 
 
 # ---------- Root Endpoint ---------- #
