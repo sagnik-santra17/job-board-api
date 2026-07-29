@@ -120,3 +120,68 @@ async def create_test_company(
         "company": company,
         "company_id": company["company_id"]
     }
+
+
+
+# --------- Create a job helper function --------------- #
+import uuid
+from httpx import AsyncClient
+
+async def create_test_job(
+    client: AsyncClient,
+    company_id: int,
+    headers: dict = None, # -> Optional: use existing token
+    title: str = "Software Engineer",
+    description: str = "This is a test job with at least fifty characters. More text here to reach the minimum length.",
+    location: str = "San Francisco, CA",
+    salary_range: str = "100000-200000"
+) -> dict:
+    
+    """
+    Create a test job under a given company.
+
+    Args:
+        client: The HTTP client.
+        company_id: The ID of the company to attach the job to.
+        headers: Optional dict with Authorization header. If not provided, a new manager is created.
+        title: Job title (default: "Software Engineer").
+        description: Job description (must be at least 50 chars).
+        location: Job location.
+        salary_range: Salary range (e.g., "100000-200000").
+
+    Returns:
+        dict: Contains 'headers' (used for the request), 'job' (the created job data), and 'job_id'.
+    """
+    # If no headers were provided, create a new manager user and get its token
+    if headers is None:
+        unique = uuid.uuid4().hex[:8]
+        manager_username = f"manager_{unique}"
+        headers = await get_token_from_logged_user(client, username=manager_username, role="manager")
+    
+    # Generate a unique title if it's the default (to avoid conflicts across tests)
+    if title == "Software Engineer":
+        title = f"Software Engineer {uuid.uuid4().hex[:6]}"
+
+    # Prepare the job data (matches the JobCreate schema)
+    job_data = {
+        "title": title,
+        "description": description,
+        "location": location,
+        "salary_range": salary_range
+    }
+
+    # Send the request
+    response = await client.post(
+        f"/companies/{company_id}/jobs/",
+        json=job_data,
+        headers=headers
+    )
+    # Raise an error if creation failed, so the test fails early
+    assert response.status_code == 201, f"Job creation failed: {response.text}"
+
+    job = response.json()
+    return {
+        "headers": headers,          # the headers used (either provided or new)
+        "job": job,
+        "job_id": job["job_id"]
+    }

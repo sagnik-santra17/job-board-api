@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 import time
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -134,7 +135,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.error(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()}
+        content={"detail": jsonable_encoder(exc.errors())}
     )
 
 # ---------- Include Routers ---------- #
