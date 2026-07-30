@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import DateTime, ForeignKey, Enum
+from sqlalchemy import DateTime, ForeignKey, Enum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from enum import Enum as PyEnum
 
@@ -25,6 +25,7 @@ class JobApplication(Base):
 
     application_id: Mapped[int] = mapped_column(primary_key=True)
     status: Mapped[str] = mapped_column(Enum(ApplicationStatus), nullable=False, default=ApplicationStatus.PENDING)
+    cover_letter: Mapped[str] = mapped_column(Text, nullable=True)
     applied_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
