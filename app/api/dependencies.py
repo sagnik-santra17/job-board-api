@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.modules.users.user_service import UserService
     from app.modules.companies.company_service import CompanyService
     from app.modules.jobs.job_service import JobService
+    from app.modules.applications.application_service import ApplicationService
     from app.modules.users.user_model import User
     
 
@@ -34,6 +35,7 @@ def get_user_service(db: db_dependency) -> "UserService":
 
     from app.modules.users.user_repository import UserRepository
     from app.modules.users.user_service import UserService
+
     repo = UserRepository(db)
     return UserService(repo)
 
@@ -45,6 +47,7 @@ def get_company_service(db: db_dependency) -> "CompanyService":
 
     from app.modules.companies.company_service import CompanyService
     from app.modules.companies.company_repository import CompanyRepository
+
     repo = CompanyRepository(db)
     return CompanyService(repo)
 
@@ -57,6 +60,7 @@ def get_job_service(db: db_dependency) -> "JobService":
     from app.modules.jobs.job_repository import JobRepository
     from app.modules.jobs.job_service import JobService
     from app.modules.companies.company_repository import CompanyRepository
+
     job_repo = JobRepository(db)
     company_repo = CompanyRepository(db)
     return JobService(job_repo, company_repo)
@@ -64,6 +68,20 @@ def get_job_service(db: db_dependency) -> "JobService":
 job_service_dependency = Annotated["JobService", Depends(get_job_service)]
 
 
+# ------- Application dependency service injection -------- #
+def get_application_service(db: db_dependency) -> "ApplicationService":
+
+    from app.modules.applications.application_repository import ApplicationRepository
+    from app.modules.applications.application_service import ApplicationService
+    from app.modules.jobs.job_repository import JobRepository
+    from app.modules.companies.company_repository import CompanyRepository
+
+    application_repo = ApplicationRepository(db)
+    job_repo = JobRepository(db)
+    company_repo = CompanyRepository(db)
+    return ApplicationService(application_repo, job_repo, company_repo)
+
+application_service_dependency = Annotated["ApplicationService", Depends(get_application_service)]
 
 
 
