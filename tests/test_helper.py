@@ -185,3 +185,46 @@ async def create_test_job(
         "job": job,
         "job_id": job["job_id"]
     }
+
+
+
+# --------- Create an employee user helper --------------- #
+async def create_test_employee_user(
+    client: AsyncClient,
+    username: str = None
+) -> dict:
+    """Create an employee user and return the Authorization header."""
+    if username is None:
+        username = f"employee_{uuid.uuid4().hex[:8]}"
+
+    header = await get_token_from_logged_user(client, username=username, role="employee")
+    return header
+
+
+# --------- Create an application helper --------------- #
+async def create_test_application(
+    client: AsyncClient,
+    job_id: int,
+    employee_headers: dict = None,
+    cover_letter: str = "I am very interested in this position. Please consider my application."
+) -> dict:
+    
+    if employee_headers is None:
+        employee_headers = await create_test_employee_user(client)
+    
+    application_data = {"cover_letter": cover_letter}
+
+    response = await client.post(
+        f"/jobs/{job_id}/applications/",
+        json=application_data,
+        headers=employee_headers
+    )
+
+    assert response.status_code == 201  
+    application = response.json()
+
+    return {
+        "headers": employee_headers,
+        "application": application,
+        "application_id": application["application_id"]
+    }

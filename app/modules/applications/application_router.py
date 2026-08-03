@@ -1,9 +1,10 @@
+from turtle import st
 from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 
 from app.api.dependencies import get_current_user, application_service_dependency
-from app.modules.applications.application_schema import ApplicationResponse, CreateApplication, UpdateApplication
+from app.modules.applications.application_schema import ApplicationResponse, CreateApplication, EmployeeApplicationResponse, UpdateApplication
 
 
 if TYPE_CHECKING:
@@ -49,27 +50,25 @@ async def update_application(
     data: UpdateApplication,
     service: application_service_dependency,
     active_user: current_user,
-    application_id: int
+    application_id: int,
 ):
-
+    
     if active_user.role == "employee":
-        return await service.update_application(
-            data=data, 
-            application_id=application_id, 
-            employee_id=active_user.user_id
+        app = await service.update_application(
+            application_id, data, employee_id=active_user.user_id
         )
-
+        return EmployeeApplicationResponse.model_validate(app)  #-> employee schema
+    
     elif active_user.role == "manager":
-        return await service.update_application(
-            data=data, 
-            application_id=application_id, 
-            manager_id=active_user.user_id
+        app = await service.update_application(
+            application_id, data, manager_id=active_user.user_id
         )
-
+        return ApplicationResponse.model_validate(app) # -> full schema
+    
     else:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid role for updating an application",
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Invalid role"
         )
 
 
@@ -87,10 +86,12 @@ async def delete_application(
             detail="Only employees can delete their own applications",
         )
 
-    return await service.delete_application(
+    await service.delete_application(
         application_id=application_id, 
         employee_id=active_user.user_id
     )
+
+    return {"detail": "Application deleted successfully"} 
 
 
 # Finding a single application router
@@ -98,25 +99,20 @@ async def delete_application(
 async def get_application_by_id(
     service: application_service_dependency,
     active_user: current_user,
-    application_id: int
+    application_id: int,
 ):
-
     if active_user.role == "employee":
-        return await service.get_application_by_id_for_employee(
-            application_id=application_id, 
-            employee_id=active_user.user_id
-        )
-
+        app = await service.get_application_by_id_for_employee(application_id, active_user.user_id)
+        return EmployeeApplicationResponse.model_validate(app) # -> uses employee schema
+    
     elif active_user.role == "manager":
-        return await service.get_application_by_id_for_manager(
-            application_id=application_id, 
-            manager_id=active_user.user_id
-        )
-
+        app = await service.get_application_by_id_for_manager(application_id, active_user.user_id)
+        return ApplicationResponse.model_validate(app) # -> uses full schema
+    
     else:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid role for getting an application",
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Invalid role"
         )
 
 
@@ -127,7 +123,8 @@ async def get_all_applications(
     active_user: current_user,
 ):
     if active_user.role == "employee":
-        return await service.get_all_applications_by_employee_id(employee_id=active_user.user_id)
+        apps = await service.get_all_applications_by_employee_id(active_user.user_id)
+        return [EmployeeApplicationResponse.model_validate(app) for app in apps]
     
     elif active_user.role == "manager":
         return await service.get_all_applications_by_manager_id(manager_id=active_user.user_id)
@@ -140,19 +137,21 @@ async def get_all_applications(
 
 
 # Find all the application according to their status router
-@router.get("/status/{status_value}", status_code=status.HTTP_200_OK)
+@router.get("/status/{status_value}", status_code=status.HTTP_200_OK, response_model=list[ApplicationResponse])
 async def get_all_applications_by_status(
     service: application_service_dependency,
     active_user: current_user,
-    status_value: str,   # renamed to avoid shadowing fastapi.status
+    status_value: str,
 ):
+    
     if active_user.role != "manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers can filter by status"
         )
+    
     apps = await service.get_all_applications_by_status(status_value, active_user.user_id)
-    return [ApplicationResponse.model_validate(app, from_attributes=True) for app in apps]
+    return apps
 
 
 # Find applications applied for a single job post
