@@ -32,21 +32,32 @@ class ApplicationService:
 
 
     # Creating an application
-    async def create_application(self, data: CreateApplication, employee_id: int) -> JobApplication:
+    async def create_application(self, data: CreateApplication, job_id: int, employee_id: int) -> JobApplication:
+        
+        logger.info(f"Service: Employee {employee_id} applying to job {job_id}")
 
-        logger.info(f"Service: Employee {employee_id} applying to job {data.job_id}")
+        # Verify job exists
+        job = await self.job_repo.find_job_by_id(job_id)
+        if not job:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, 
+                "Job not found"
+            )
 
         # Check for duplicate application
-        existing = await self.repo.find_application_by_job_id_and_employee_id(data.job_id, employee_id)
-
+        existing = await self.repo.find_application_by_job_id_and_employee_id(job_id, employee_id)
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="You have already applied for this job"
             )
 
-        # Create the application – exclude employee_id from request body, use the one from token
-        new_application = JobApplication(**data.model_dump(), employee_id=employee_id)
+        # Create the application object
+        new_application = JobApplication(
+            **data.model_dump(),  # only contains status and cover_letter
+            employee_id=employee_id,
+            job_id=job_id
+        )
 
         return await self.repo.create(new_application)
 
@@ -139,8 +150,8 @@ class ApplicationService:
         logger.info(f"Service: Successfully deleted application {application_id}")
 
 
-    # Find application by id
-    async def get_application_by_id(self, application_id: int, employee_id: int) -> JobApplication:
+    # Find application by id for employees
+    async def get_application_by_id_for_employee(self, application_id: int, employee_id: int) -> JobApplication:
 
         logger.info(f"Service: Attempting to find an application with application id: {application_id}")
 
@@ -148,6 +159,24 @@ class ApplicationService:
         valid_application = validate_application_id_exists(application)
 
         validate_application_employee_ownership(valid_application, employee_id)
+
+        logger.info(f"Service: Successfully found an application with application id: {application_id}")
+
+        return valid_application
+
+
+    # Find application by id for managers
+    async def get_application_by_id_for_manager(self, application_id: int, manager_id: int) -> JobApplication:
+
+        logger.info(f"Service: Attempting to find an application with application id: {application_id}")
+
+        application = await self.repo.find_application_by_id(application_id)
+        valid_application = validate_application_id_exists(application)
+
+        job = await self.job_repo.find_job_by_id(valid_application.job_id)
+        valid_job = validate_job_id_exists(job)
+
+        await get_and_validate_company_ownership(self.company_repo, valid_job.company_id, manager_id)
 
         logger.info(f"Service: Successfully found an application with application id: {application_id}")
 
@@ -166,28 +195,70 @@ class ApplicationService:
         return applications
 
 
+    # Look for all the applications for a specific manager
+    async def get_all_applications_by_manager_id(self, manager_id: int) -> list[JobApplication]:
+
+        logger.info(f"Service: Attempting to find applications by manager id: {manager_id}")
+
+        # Get all companies owend by a manager
+        companies = await self.company_repo.find_companies_by_manager_id(manager_id)
+
+        if not companies:
+            return []
+
+        # Get all jobs created by those companies
+        jobs = []
+
+        for company in companies:
+            jobs.extend(await self.job_repo.find_all_jobs_by_company_id(company.company_id))
+
+        if not jobs:
+            return []
+
+        # Get all applications for each job
+        applications = []
+
+        for job in jobs:
+            applications.extend(await self.repo.find_all_applications_by_job_id(job.job_id))
+
+        logger.info(f"Service: Successfully found applications by manager id: {manager_id}")
+
+        return applications
+
+
     # Find all the application according to their status
-    async def get_all_applications_by_status(self, status: str) -> list[JobApplication]:
+    async def get_all_applications_by_status(self, status: str, manager_id: int) -> list[JobApplication]:
 
         logger.info(f"Service: Attempting to find applications by status: {status}")
 
-        applications = await self.repo.find_all_applications_by_status(status)
+        applications = await self.get_all_applications_by_manager_id(manager_id=manager_id)
 
-        logger.info(f"Service: Successfully found applications by status: {status}")
+        # Filtering the applications by status
+        filtered_applications = [application for application in applications if application.status == status]
 
-        return applications
+        logger.info(f"Service: Found {len(filtered_applications)} applications by status: {status}")
+
+        return filtered_applications
 
 
-    # Get application by job id
-    async def get_all_applications_by_job_id(self, job_id: int) -> list[JobApplication]:
+    # Get application by job id for managers
+    async def get_applications_by_job_id_for_manager(self, job_id: int, manager_id: int) -> list[JobApplication]:
+    
+        logger.info(f"Service: Manager {manager_id} fetching applications for job {job_id}")
 
-        logger.info(f"Service: Attempting to find applications by job id: {job_id}")
+        # Retrieve the job to get its company_id
+        job = await self.job_repo.find_job_by_id(job_id)
+        valid_job = validate_job_id_exists(job)
 
-        applications = await self.repo.find_all_applications_by_job_id(job_id)
+        # Fetch the company that owns this job
+        company = await self.company_repo.find_company_by_id(valid_job.company_id)
 
-        logger.info(f"Service: Successfully found applications by job id: {job_id}")
+        # Verify the logged-in manager owns that company
+        await get_and_validate_company_ownership(self.company_repo, company.company_id, manager_id)
 
-        return applications
+        logger.info(f"Service: Successfully found applications for job {job_id}")
+
+        return await self.repo.find_all_applications_by_job_id(job_id)
 
 
 

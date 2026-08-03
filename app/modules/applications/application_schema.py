@@ -9,7 +9,6 @@ from app.modules.applications.application_model import ApplicationStatus
 
 
 class CreateApplication(BaseModel):
-    status: ApplicationStatus = Field(default=ApplicationStatus.PENDING)
     cover_letter: str = Field(..., min_length=3, max_length=1000)
 
 
@@ -25,4 +24,12 @@ class ApplicationResponse(BaseModel):
     applied_at: datetime
     updated_at: datetime
     employee_id: int
+    job_id: int
+
+
+class EmployeeApplicationResponse(BaseModel):
+    application_id: int
+    cover_letter: str | None = None
+    applied_at: datetime
+    updated_at: datetime
     job_id: int

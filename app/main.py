@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.modules.users.user_router import router as user_router
 from app.modules.companies.company_router import router as company_router
 from app.modules.jobs.job_router import router as job_router
+from app.modules.applications.application_router import router as application_router
 
 
 from app.core.database import async_engine
@@ -142,6 +143,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(user_router)
 app.include_router(company_router)
 app.include_router(job_router)
+app.include_router(application_router)
 
 
 # ---------- Root Endpoint ---------- #
