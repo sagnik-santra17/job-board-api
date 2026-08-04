@@ -7,6 +7,7 @@ from app.modules.applications.application_repository import ApplicationRepositor
 from app.modules.applications.application_schema import CreateApplication, UpdateApplication
 from app.modules.companies.company_repository import CompanyRepository
 from app.modules.jobs.job_repository import JobRepository
+from app.modules.users.user_repository import UserRepository
 from app.utils.application_utils import validate_application_employee_ownership, validate_application_id_exists
 from app.utils.company_utils import get_and_validate_company_ownership
 from app.utils.job_utils import validate_job_id_exists
@@ -24,11 +25,13 @@ class ApplicationService:
         self, 
         repo: ApplicationRepository,
         job_repo: JobRepository,
-        company_repo: CompanyRepository
+        company_repo: CompanyRepository,
+        user_repo: UserRepository
     ):
         self.repo = repo
         self.job_repo = job_repo
         self.company_repo = company_repo
+        self.user_repo = user_repo
 
 
     # Creating an application

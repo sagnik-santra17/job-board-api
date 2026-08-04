@@ -75,11 +75,13 @@ def get_application_service(db: db_dependency) -> "ApplicationService":
     from app.modules.applications.application_service import ApplicationService
     from app.modules.jobs.job_repository import JobRepository
     from app.modules.companies.company_repository import CompanyRepository
+    from app.modules.users.user_repository import UserRepository
 
     application_repo = ApplicationRepository(db)
     job_repo = JobRepository(db)
     company_repo = CompanyRepository(db)
-    return ApplicationService(application_repo, job_repo, company_repo)
+    user_repo = UserRepository(db)
+    return ApplicationService(application_repo, job_repo, company_repo, user_repo)
 
 application_service_dependency = Annotated["ApplicationService", Depends(get_application_service)]
 

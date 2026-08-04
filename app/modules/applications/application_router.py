@@ -1,10 +1,11 @@
 from turtle import st
 from typing import TYPE_CHECKING, Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 
 
 from app.api.dependencies import get_current_user, application_service_dependency
 from app.modules.applications.application_schema import ApplicationResponse, CreateApplication, EmployeeApplicationResponse, UpdateApplication
+from app.utils.email_utils import send_email_notification
 
 
 if TYPE_CHECKING:
@@ -50,6 +51,7 @@ async def update_application(
     data: UpdateApplication,
     service: application_service_dependency,
     active_user: current_user,
+    background_tasks: BackgroundTasks,
     application_id: int,
 ):
     
@@ -63,6 +65,21 @@ async def update_application(
         app = await service.update_application(
             application_id, data, manager_id=active_user.user_id
         )
+
+        if data.status == "accepted":
+
+            employee = await service.user_repo.find_user_by_user_id(app.employee_id)
+            job = await service.job_repo.find_job_by_id(app.job_id)
+            company = await service.company_repo.find_company_by_id(job.company_id)
+
+            # Send email to employee with background task
+            background_tasks.add_task(
+                send_email_notification,
+                employee_email=employee.email,
+                job_title=job.title,
+                company_name=company.company_name
+            )
+            
         return ApplicationResponse.model_validate(app) # -> full schema
     
     else:
