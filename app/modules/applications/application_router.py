@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 
 
-from app.api.dependencies import get_current_user, application_service_dependency
+from app.api.dependencies import RateLimiter, get_current_user, application_service_dependency
 from app.modules.applications.application_schema import ApplicationResponse, CreateApplication, EmployeeApplicationResponse, UpdateApplication
 from app.utils.email_utils import send_email_notification
 
@@ -23,6 +23,8 @@ current_user = Annotated["User", Depends(get_current_user)]
 
 
 # Create application router
+application_limiter = RateLimiter(max_requests=2, window_seconds=60) # -> Setting a raete limiter
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_application(
     data: CreateApplication,
@@ -37,6 +39,8 @@ async def create_application(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only employees can apply for jobs",
         )
+
+    await application_limiter.check_rate_limit(user_id=active_user.user_id)
 
     return await service.create_application(
         data=data,

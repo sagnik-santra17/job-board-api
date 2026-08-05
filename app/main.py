@@ -14,6 +14,7 @@ from app.modules.jobs.job_router import router as job_router
 from app.modules.applications.application_router import router as application_router
 
 
+from app.core import redis_client
 from app.core.database import async_engine
 
 
@@ -150,3 +151,12 @@ app.include_router(application_router)
 @app.get("/")
 async def root():
     return {"message": "Welcome to Job-Board-API"}
+
+
+
+# ------- Redis test ----------- #
+@app.get("/ping-redis")
+async def ping_redis():
+    await redis_client.set("test_key", "Hello Redis")
+    value = await redis_client.get("test_key")
+    return {"value": value}
