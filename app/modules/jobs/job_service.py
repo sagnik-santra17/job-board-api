@@ -140,20 +140,21 @@ class JobService:
     
 
     # Finding all jobs for a company
-    async def find_all_jobs(self, company_id: int, manager_id: int) -> list[JobPost] | None:
-
+    async def find_all_jobs(
+        self,
+        company_id: int,
+        manager_id: int,
+        skip: int = 0,
+        limit: int = 10
+    ) -> list[JobPost]:
+        
         logger.info(f"Service: Manager {manager_id} fetching all jobs for company: {company_id}")
 
-        await get_and_validate_company_ownership(
-            self.company_repo, 
-            company_id, 
-            manager_id
-        )    
+        await get_and_validate_company_ownership(self.company_repo, company_id, manager_id)
 
-        jobs = await self.repo.find_all_jobs_by_company_id(company_id)
+        jobs = await self.repo.find_all_jobs_by_company_id(company_id, skip=skip, limit=limit)
 
-        logger.info(f"Service: Successfully found all jobs for company: {company_id}")
-
+        logger.info(f"Service: Successfully found {len(jobs)} jobs for company: {company_id}")
         return jobs
     
 

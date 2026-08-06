@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import TYPE_CHECKING, Annotated
 from fastapi import Depends, HTTPException, status
@@ -161,3 +162,39 @@ class RateLimiter:
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many applications. Please wait a minute."
             )
+
+
+
+# ---------- Caching --------- #
+
+# ---- Tool for grabbing the data from the cache ------ #
+async def get_cache(key: str):
+
+    cached_data = await redis_client.get(key)
+    if cached_data:
+        # If data exists, turn the text back into a Python list/dict
+        return json.loads(cached_data)
+    return None
+
+
+# ---- Tool to save data into cache ------ #
+async def set_cache(key: str, data, expire_seconds: int=60):
+
+    # Turning Python data into a plain text string
+    json_string = json.dumps(data)
+    # Saving it to Redis and set a timer (defaults to 60 seconds)
+    await redis_client.set(key, json_string, ex=expire_seconds)
+
+
+# ------ Tool to completely delete a cache key ------ #
+async def delete_cache(key: str) -> None:
+    
+    if "*" in key:
+        # Find all keys that match the pattern
+        matching_keys = await redis_client.keys(key)
+        if matching_keys:
+            # Delete all found keys at once
+            await redis_client.delete(*matching_keys)
+    else:
+        # Delete the single exact key
+        await redis_client.delete(key)

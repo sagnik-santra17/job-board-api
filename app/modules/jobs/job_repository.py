@@ -1,4 +1,5 @@
 import logging
+from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,10 +57,21 @@ class JobRepository:
         return job
     
 
-    async def find_all_jobs_by_company_id(self, company_id: int) -> list[JobPost] | None:
+    async def find_all_jobs_by_company_id(
+        self, 
+        company_id: int, 
+        skip: int = 0, 
+        limit: int = 10
+    ) -> Sequence[JobPost]:
 
         logger.info(f"Database: Attempting to find jobs by company id: {company_id}")
-        query = select(JobPost).where(JobPost.company_id == company_id)
+        query = (
+            select(JobPost)
+            .where(JobPost.company_id == company_id)
+            .offset(skip)
+            .limit(limit)
+        )
+
         results = await self.db.execute(query)
         jobs = results.scalars().all()
 
