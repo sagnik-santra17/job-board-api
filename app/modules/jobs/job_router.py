@@ -1,6 +1,8 @@
-from ast import mod
+import logging
+import redis.exceptions
 from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
+import redis
 
 
 from app.api.dependencies import get_cache, get_current_user, set_cache
@@ -14,6 +16,8 @@ if TYPE_CHECKING:
 
 # ---------------------------------------------------------------------------------------------------------------- #
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/companies/{company_id}/jobs", tags=["Jobs"])
 
@@ -85,14 +89,15 @@ async def find_job(
     company_id: int,
     job_id: int
 ):
-
-    # Creating a unique key for this specific job in Redis
     cache_key = f"job:{job_id}"
 
-    # 1. Check cache
-    cached_data = await get_cache(cache_key)
-    if cached_data:
-        return cached_data
+    # 1. Try to get from cache – fall back to DB on any Redis error
+    try:
+        cached_data = await get_cache(cache_key)
+        if cached_data:
+            return cached_data
+    except redis.exceptions.ConnectionError as e:
+        logger.warning(f"Redis unavailable (get): {e} – falling back to DB for job {job_id}")
 
     # 2. Fetch from DB
     job = await service.find_job(
@@ -101,11 +106,14 @@ async def find_job(
         manager_id=active_user.user_id
     )
 
-    # 3. Cache the result (convert to dict)
-    job_dict = JobResponse.model_validate(job).model_dump(mode="json")
-    await set_cache(cache_key, job_dict, expire_seconds=60)
+    # 3. Try to cache the result – ignore Redis errors
+    try:
+        job_dict = JobResponse.model_validate(job).model_dump(mode="json")
+        await set_cache(cache_key, job_dict, expire_seconds=60)
+    except redis.exceptions.ConnectionError as e:
+        logger.warning(f"Redis unavailable (set): {e} – caching skipped for job {job_id}")
 
-    # 4. Return the job 
+    # 4. Return the job (as dict)
     return job_dict
 
 
@@ -118,26 +126,30 @@ async def find_all_jobs(
     skip: int = 0,
     limit: int = 10
 ):
-
-    # Creating a completely unique cache key for the rooms
     cache_key = f"jobs:all:{company_id}:skip:{skip}:limit:{limit}"
 
-    # 1. Check cache
-    cached_data = await get_cache(cache_key)
-    if cached_data:
-        return cached_data
+    # 1. Try to get from cache
+    try:
+        cached_data = await get_cache(cache_key)
+        if cached_data:
+            return cached_data
+    except redis.exceptions.ConnectionError as e:
+        logger.warning(f"Redis unavailable (get): {e} – falling back to DB for jobs list")
 
     # 2. Fetch from DB
     jobs = await service.find_all_jobs(
-        company_id=company_id, 
+        company_id=company_id,
         manager_id=active_user.user_id,
         skip=skip,
         limit=limit
     )
 
-    # 3. Cache the result (convert to dict)
-    jobs_dict = [JobResponse.model_validate(job).model_dump(mode="json") for job in jobs]
-    await set_cache(cache_key, jobs_dict, expire_seconds=60)
+    # 3. Try to cache the result
+    try:
+        jobs_dict = [JobResponse.model_validate(job).model_dump(mode="json") for job in jobs]
+        await set_cache(cache_key, jobs_dict, expire_seconds=60)
+    except redis.exceptions.ConnectionError as e:
+        logger.warning(f"Redis unavailable (set): {e} – caching skipped for jobs list")
 
     return jobs_dict
 

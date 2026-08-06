@@ -13,8 +13,10 @@ from tests.test_helper import create_test_company, create_test_employee_user, cr
 
 # This fixture overrides the mocked limiter with a real one for these tests.
 # It uses a short window (2 seconds) so you don't have to wait 60 seconds.
+
 @pytest.fixture(autouse=True)
 def use_real_rate_limiter(monkeypatch):
+
     # Create a limiter with 2 requests per 2 seconds for fast testing
     test_limiter = RateLimiter(max_requests=2, window_seconds=2)
     # Replace the application_limiter's method with the real one
