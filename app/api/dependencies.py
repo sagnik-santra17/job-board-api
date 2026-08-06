@@ -130,10 +130,12 @@ async def get_current_user(
 
 
 
-# ------------- Rate Limiting Tool ------------ #
-
+# ------------------- Main redis client ------------------- #
 # Creating Redis client
 redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True, protocol=2)
+
+
+# ------------- Rate Limiting Tool ------------ #
 
 # Reusable class for rate limiting
 class RateLimiter:

@@ -7,6 +7,8 @@ from app.core.database import get_db
 from app.main import app
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from app.core.database import Base
+from app.api.dependencies import redis_client
+
 
 # ------------------------------------------------------------------------------------------------------------ #
 
@@ -69,3 +71,21 @@ async def client(db_session):
 
     # Clean up overrides after the test
     app.dependency_overrides.clear()
+
+
+
+# This fixture disables the rate limiter during tests to prevent 429 errors
+# when multiple requests are made in a short time.
+@pytest.fixture(autouse=True)
+def mock_rate_limiter(monkeypatch):
+    from app.modules.applications.application_router import application_limiter
+    async def mock_check(user_id):
+        return
+    monkeypatch.setattr(application_limiter, "check_rate_limit", mock_check)
+
+
+# Automatically clears Redis before each test function to ensure isolation.
+@pytest_asyncio.fixture(autouse=True, scope="function")
+async def clear_redis():
+    await redis_client.flushdb()
+    yield

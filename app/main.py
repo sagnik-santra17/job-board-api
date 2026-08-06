@@ -14,7 +14,7 @@ from app.modules.jobs.job_router import router as job_router
 from app.modules.applications.application_router import router as application_router
 
 
-from app.core import redis_client
+from app.api.dependencies import redis_client
 from app.core.database import async_engine
 
 
