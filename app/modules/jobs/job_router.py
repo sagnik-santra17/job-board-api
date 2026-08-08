@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 import redis
 
 
-from app.api.dependencies import get_cache, get_current_user, set_cache
+from app.api.dependencies import delete_cache, get_cache, get_current_user, set_cache
 from app.modules.jobs.job_schema import CreateJob, JobResponse, JobUpdate
 from app.api.dependencies import job_service_dependency
 
@@ -33,18 +33,25 @@ async def create_job(
     active_user: current_user,
     company_id: int
 ):
-    
+
+    # Because only managers can create jobs
     if active_user.role != "manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers can create jobs",
         )
 
-    return await service.create_job(
-        data=data, 
-        company_id=company_id, 
+    # Create the job
+    new_job = await service.create_job(
+        data=data,
+        company_id=company_id,
         manager_id=active_user.user_id
     )
+
+    # Invalidate list cache for this company (all paginated versions)
+    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*")
+
+    return new_job
 
 
 # -------- Update Job Router -------- #
@@ -56,13 +63,20 @@ async def update_job(
     company_id: int,
     job_id: int
 ):
-
-    return await service.update_job(
-        data=data, 
-        job_id=job_id, 
-        company_id=company_id, 
+    
+    # Update the job
+    updated_job = await service.update_job(
+        data=data,
+        job_id=job_id,
+        company_id=company_id,
         manager_id=active_user.user_id
     )
+
+    # Invalidate caches
+    await delete_cache(f"job:{job_id}") # -> single job detail
+    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*") # -> all list caches for this company
+
+    return updated_job
 
 
 # -------- Delete Job Router -------- #
@@ -73,12 +87,18 @@ async def delete_job(
     company_id: int,
     job_id: int
 ):
-
-    return await service.delete_job(
-        job_id=job_id, 
-        company_id=company_id, 
+    # Delete the job
+    result = await service.delete_job(
+        job_id=job_id,
+        company_id=company_id,
         manager_id=active_user.user_id
     )
+
+    # Invalidate caches
+    await delete_cache(f"job:{job_id}") # -> single job detail
+    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*") # -> all list caches for this company
+
+    return result
 
 
 # -------- Find Job Router -------- #
