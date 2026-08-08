@@ -4,36 +4,33 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 import redis
 
-
 from app.api.dependencies import delete_cache, get_cache, get_current_user, set_cache
 from app.modules.jobs.job_schema import CreateJob, JobResponse, JobUpdate
 from app.api.dependencies import job_service_dependency
 
-
 if TYPE_CHECKING:
     from app.modules.users.user_model import User
 
-
 # ---------------------------------------------------------------------------------------------------------------- #
-
 
 logger = logging.getLogger(__name__)
 
+# Manager-scoped router (requires company ownership)
 router = APIRouter(prefix="/companies/{company_id}/jobs", tags=["Jobs"])
 
 # Current User Dependency
 current_user = Annotated["User", Depends(get_current_user)]
 
 
+
 # -------- Create Job Router -------- #
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=JobResponse)
 async def create_job(
     data: CreateJob,
     service: job_service_dependency,
     active_user: current_user,
     company_id: int
 ):
-
     # Because only managers can create jobs
     if active_user.role != "manager":
         raise HTTPException(
@@ -55,7 +52,7 @@ async def create_job(
 
 
 # -------- Update Job Router -------- #
-@router.patch("/{job_id}", status_code=status.HTTP_200_OK)
+@router.patch("/{job_id}", status_code=status.HTTP_200_OK, response_model=JobResponse)
 async def update_job(
     data: JobUpdate,
     service: job_service_dependency,
@@ -63,7 +60,13 @@ async def update_job(
     company_id: int,
     job_id: int
 ):
-    
+    # Explicit role check for consistency
+    if active_user.role != "manager":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only managers can update jobs",
+        )
+
     # Update the job
     updated_job = await service.update_job(
         data=data,
@@ -73,8 +76,8 @@ async def update_job(
     )
 
     # Invalidate caches
-    await delete_cache(f"job:{job_id}") # -> single job detail
-    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*") # -> all list caches for this company
+    await delete_cache(f"job:{job_id}")  # -> single job detail
+    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*")  # -> all list caches for this company
 
     return updated_job
 
@@ -87,6 +90,13 @@ async def delete_job(
     company_id: int,
     job_id: int
 ):
+    # Explicit role check for consistency
+    if active_user.role != "manager":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only managers can delete jobs",
+        )
+
     # Delete the job
     result = await service.delete_job(
         job_id=job_id,
@@ -95,20 +105,27 @@ async def delete_job(
     )
 
     # Invalidate caches
-    await delete_cache(f"job:{job_id}") # -> single job detail
-    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*") # -> all list caches for this company
+    await delete_cache(f"job:{job_id}")  # -> single job detail
+    await delete_cache(f"jobs:all:{company_id}:skip:*:limit:*")  # -> all list caches for this company
 
     return result
 
 
 # -------- Find Job Router -------- #
-@router.get("/{job_id}", status_code=status.HTTP_200_OK)
+@router.get("/{job_id}", status_code=status.HTTP_200_OK, response_model=JobResponse)
 async def find_job(
     service: job_service_dependency,
     active_user: current_user,
     company_id: int,
     job_id: int
 ):
+    # Explicit role check for consistency (ownership check also enforces this)
+    if active_user.role != "manager":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only managers can view job details",
+        )
+
     cache_key = f"job:{job_id}"
 
     # 1. Try to get from cache – fall back to DB on any Redis error
@@ -137,8 +154,8 @@ async def find_job(
     return job_dict
 
 
-# -------- Find All Jobs Router -------- #
-@router.get("/", status_code=status.HTTP_200_OK)
+# -------- Find All Jobs Router (Manager) -------- #
+@router.get("/", status_code=status.HTTP_200_OK, response_model=list[JobResponse])
 async def find_all_jobs(
     service: job_service_dependency,
     active_user: current_user,
@@ -146,6 +163,13 @@ async def find_all_jobs(
     skip: int = 0,
     limit: int = 10
 ):
+    # Explicit role check for consistency
+    if active_user.role != "manager":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only managers can list jobs for a company",
+        )
+
     cache_key = f"jobs:all:{company_id}:skip:{skip}:limit:{limit}"
 
     # 1. Try to get from cache
@@ -173,3 +197,22 @@ async def find_all_jobs(
 
     return jobs_dict
 
+
+# ---------------------------------------------------------------------------------------------------------------- #
+# Public router for employee job browsing (no ownership checks)
+# ---------------------------------------------------------------------------------------------------------------- #
+
+# List all active job postings across all companies. Accessible to any authenticated user (employee or manager).
+
+public_router = APIRouter(prefix="/jobs", tags=["Jobs"])
+
+@public_router.get("/", response_model=list[JobResponse])
+async def list_active_jobs(
+    service: job_service_dependency,
+    active_user: current_user,
+    skip: int = 0,
+    limit: int = 10
+):
+    # No role check – both employees and managers can browse active jobs
+    jobs = await service.get_all_active_jobs(skip, limit)
+    return jobs

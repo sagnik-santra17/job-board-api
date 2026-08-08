@@ -1,38 +1,37 @@
-from fastapi import status
 from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 
-
 from app.api.dependencies import RateLimiter, get_current_user, application_service_dependency
-from app.modules.applications.application_schema import ApplicationResponse, CreateApplication, EmployeeApplicationResponse, UpdateApplication
+from app.modules.applications.application_schema import (
+    ApplicationResponse,
+    CreateApplication,
+    EmployeeApplicationResponse,
+    UpdateApplication,
+)
+from app.modules.applications.application_model import ApplicationStatus  # Import the enum
 from app.utils.email_utils import send_email_notification
-
 
 if TYPE_CHECKING:
     from app.modules.users.user_model import User
-    
 
 # ---------------------------------------------------------------------------------------------------------------------- #
 
-
 router = APIRouter(prefix="/jobs/{job_id}/applications", tags=["Applications"])
-
 
 # Current User Dependency
 current_user = Annotated["User", Depends(get_current_user)]
 
 
 # Create application router
-application_limiter = RateLimiter(max_requests=2, window_seconds=60) # -> Setting a raete limiter
+application_limiter = RateLimiter(max_requests=2, window_seconds=60)  # Rate limiter
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=ApplicationResponse)
 async def create_application(
     data: CreateApplication,
     service: application_service_dependency,
     active_user: current_user,
-    job_id: int
+    job_id: int,
 ):
-
     # Check if the user is an employee
     if active_user.role != "employee":
         raise HTTPException(
@@ -45,7 +44,7 @@ async def create_application(
     return await service.create_application(
         data=data,
         job_id=job_id,
-        employee_id=active_user.user_id
+        employee_id=active_user.user_id,
     )
 
 
@@ -58,20 +57,18 @@ async def update_application(
     background_tasks: BackgroundTasks,
     application_id: int,
 ):
-    
     if active_user.role == "employee":
         app = await service.update_application(
             application_id, data, employee_id=active_user.user_id
         )
-        return EmployeeApplicationResponse.model_validate(app)  #-> employee schema
-    
+        return EmployeeApplicationResponse.model_validate(app)  # employee schema
+
     elif active_user.role == "manager":
         app = await service.update_application(
             application_id, data, manager_id=active_user.user_id
         )
 
         if data.status == "accepted":
-
             employee = await service.user_repo.find_user_by_user_id(app.employee_id)
             job = await service.job_repo.find_job_by_id(app.job_id)
             company = await service.company_repo.find_company_by_id(job.company_id)
@@ -81,15 +78,15 @@ async def update_application(
                 send_email_notification,
                 employee_email=employee.email,
                 job_title=job.title,
-                company_name=company.company_name
+                company_name=company.company_name,
             )
-            
-        return ApplicationResponse.model_validate(app) # -> full schema
-    
+
+        return ApplicationResponse.model_validate(app)  # full schema
+
     else:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Invalid role"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid role",
         )
 
 
@@ -98,9 +95,8 @@ async def update_application(
 async def delete_application(
     service: application_service_dependency,
     active_user: current_user,
-    application_id: int
+    application_id: int,
 ):
-
     if active_user.role != "employee":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -108,11 +104,11 @@ async def delete_application(
         )
 
     await service.delete_application(
-        application_id=application_id, 
-        employee_id=active_user.user_id
+        application_id=application_id,
+        employee_id=active_user.user_id,
     )
 
-    return {"detail": "Application deleted successfully"} 
+    return {"detail": "Application deleted successfully"}
 
 
 # Finding a single application router
@@ -123,17 +119,21 @@ async def get_application_by_id(
     application_id: int,
 ):
     if active_user.role == "employee":
-        app = await service.get_application_by_id_for_employee(application_id, active_user.user_id)
-        return EmployeeApplicationResponse.model_validate(app) # -> uses employee schema
-    
+        app = await service.get_application_by_id_for_employee(
+            application_id, active_user.user_id
+        )
+        return EmployeeApplicationResponse.model_validate(app)  # employee schema
+
     elif active_user.role == "manager":
-        app = await service.get_application_by_id_for_manager(application_id, active_user.user_id)
-        return ApplicationResponse.model_validate(app) # -> uses full schema
-    
+        app = await service.get_application_by_id_for_manager(
+            application_id, active_user.user_id
+        )
+        return ApplicationResponse.model_validate(app)  # full schema
+
     else:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Invalid role"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid role",
         )
 
 
@@ -146,9 +146,11 @@ async def get_all_applications(
     if active_user.role == "employee":
         apps = await service.get_all_applications_by_employee_id(active_user.user_id)
         return [EmployeeApplicationResponse.model_validate(app) for app in apps]
-    
+
     elif active_user.role == "manager":
-        return await service.get_all_applications_by_manager_id(manager_id=active_user.user_id)
+        # Use response_model to automatically convert SQLAlchemy models
+        apps = await service.get_all_applications_by_manager_id(manager_id=active_user.user_id)
+        return apps
 
     else:
         raise HTTPException(
@@ -162,27 +164,27 @@ async def get_all_applications(
 async def get_all_applications_by_status(
     service: application_service_dependency,
     active_user: current_user,
-    status_value: str,
+    status_value: ApplicationStatus,  # Changed from str to ApplicationStatus enum – FastAPI validates automatically
 ):
-    
     if active_user.role != "manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only managers can filter by status"
+            detail="Only managers can filter by status",
         )
-    
-    apps = await service.get_all_applications_by_status(status_value, active_user.user_id)
-    return apps
+
+    # The service expects the string value; ApplicationStatus is a string enum,
+    # so we pass status_value.value to get the raw string.
+    apps = await service.get_all_applications_by_status(status_value.value, active_user.user_id)
+    return apps  # response_model handles conversion
 
 
 # Find applications applied for a single job post
-@router.get("/job/", status_code=status.HTTP_200_OK)
+@router.get("/job/", status_code=status.HTTP_200_OK, response_model=list[ApplicationResponse])
 async def get_all_applications_by_job_id(
     service: application_service_dependency,
     active_user: current_user,
-    job_id: int
+    job_id: int,
 ):
-    
     if active_user.role != "manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -191,6 +193,5 @@ async def get_all_applications_by_job_id(
 
     return await service.get_applications_by_job_id_for_manager(
         job_id=job_id,
-        manager_id=active_user.user_id
+        manager_id=active_user.user_id,
     )
-    

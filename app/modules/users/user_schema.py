@@ -1,6 +1,8 @@
 from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr, model_validator, ConfigDict
 
+from app.modules.users.user_model import UserType  # Import the enum
+
 
 # ------------------------------------------------------------------------------------------------------------------ #
 
@@ -12,8 +14,8 @@ class UserCreate(BaseModel):
     email: EmailStr = Field(...)
     password: str = Field(..., min_length=8, max_length=100)
     confirm_password: str = Field(..., min_length=8, max_length=100)
-    role: str = Field(..., description="Must be 'employee' or 'manager'")  # Added role
-    is_active: bool = Field(default=True)  
+    role: UserType = Field(..., description="Must be 'employee' or 'manager'")  # Changed from str to UserType
+    is_active: bool = Field(default=True)
 
     # Validate that password and confirm_password match
     @model_validator(mode="after")
@@ -48,12 +50,12 @@ class UserUpdate(BaseModel):
 
 # Schema for returning user data in API responses (read-only)
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)  
+    model_config = ConfigDict(from_attributes=True)
     user_id: int
     username: str
     full_name: str
     email: EmailStr
-    role: str                 
+    role: UserType  # Changed from str to UserType
     is_active: bool
     created_at: datetime
 

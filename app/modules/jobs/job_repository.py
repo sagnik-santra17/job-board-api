@@ -1,6 +1,6 @@
 import logging
 from typing import Sequence
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.jobs.job_model import JobPost
@@ -95,3 +95,19 @@ class JobRepository:
         if not job:
             logger.warning(f"Database: No job with title: {title}")
         return job
+
+
+    # ---- NEW: Public endpoint for employees to browse active jobs ----
+    async def find_all_active_jobs(self, skip: int = 0, limit: int = 10) -> Sequence[JobPost]:
+        logger.info(f"Database: Fetching active jobs with skip={skip} limit={limit}")
+        query = (
+            select(JobPost)
+            .where(JobPost.is_active == True)
+            .offset(skip)
+            .limit(limit)
+            .order_by(desc(JobPost.created_at))
+        )
+        results = await self.db.execute(query)
+        jobs = results.scalars().all()
+        logger.info(f"Database: Found {len(jobs)} active jobs")
+        return jobs

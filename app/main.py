@@ -12,6 +12,7 @@ from app.modules.users.user_router import router as user_router
 from app.modules.companies.company_router import router as company_router
 from app.modules.jobs.job_router import router as job_router
 from app.modules.applications.application_router import router as application_router
+from app.modules.jobs.job_router import public_router as job_public_router
 
 
 from app.api.dependencies import redis_client
@@ -145,6 +146,8 @@ app.include_router(user_router)
 app.include_router(company_router)
 app.include_router(job_router)
 app.include_router(application_router)
+# Public router to see the job postings
+app.include_router(job_public_router)
 
 
 # ---------- Root Endpoint ---------- #
@@ -153,10 +156,3 @@ async def root():
     return {"message": "Welcome to Job-Board-API"}
 
 
-
-# ------- Redis test ----------- #
-@app.get("/ping-redis")
-async def ping_redis():
-    await redis_client.set("test_key", "Hello Redis")
-    value = await redis_client.get("test_key")
-    return {"value": value}

@@ -170,4 +170,10 @@ class JobService:
         return job
 
 
+    # Finding all active jobs for employees
+    async def get_all_active_jobs(self, skip: int = 0, limit: int = 10) -> list[JobPost]:
+        logger.info(f"Service: Fetching active jobs with skip={skip} limit={limit}")
+        return await self.repo.find_all_active_jobs(skip, limit)
+
+
         

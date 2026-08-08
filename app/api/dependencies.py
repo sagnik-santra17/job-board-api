@@ -188,13 +188,11 @@ async def set_cache(key: str, data, expire_seconds: int=60):
 
 # ------ Tool to completely delete a cache key ------ #
 async def delete_cache(key: str) -> None:
-    
     if "*" in key:
-        # Find all keys that match the pattern
-        matching_keys = await redis_client.keys(key)
-        if matching_keys:
-            # Delete all found keys at once
-            await redis_client.delete(*matching_keys)
+        # Using SCAN (non-blocking) instead of KEYS (blocking O(N)) for production safety
+        # This iterates over keys matching the pattern without blocking Redis.
+        async for key_to_delete in redis_client.scan_iter(match=key):
+            await redis_client.delete(key_to_delete)
     else:
         # Delete the single exact key
         await redis_client.delete(key)
