@@ -19,6 +19,7 @@ class JobUpdate(BaseModel):
     description: str | None = Field(default=None, min_length=50, max_length=1000)
     location: str | None = Field(default=None, min_length=3, max_length=100)
     salary_range: str | None = Field(default=None, min_length=3, max_length=100)
+    is_active: bool | None = Field(default=None)
 
 
 # Job schema for response

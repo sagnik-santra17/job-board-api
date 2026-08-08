@@ -2,7 +2,6 @@ import uuid
 import pytest
 from httpx import AsyncClient
 
-
 from tests.test_helper import create_test_application, create_test_company, create_test_employee_user, create_test_job, get_token_from_logged_user
 
 # ---------------------------------------------------------------------------------------------------------------- #
@@ -746,41 +745,7 @@ async def test_update_application_manager_other_company_fail(client: AsyncClient
         json={"status": "accepted"},
         headers=manager_b_headers
     )
-    assert response.status_code == 401
-    assert response.json()["detail"] == "You are not authorized to access this company."
-
-
-# ------ Manager tries to update application for a job they don't own ------
-@pytest.mark.asyncio
-async def test_update_application_manager_other_company_fail(client: AsyncClient):
-    
-    # Creating a company and a job with Manager A
-    company_a = await create_test_company(client)
-    company_id = company_a["company_id"]
-    manager_a_headers = company_a["headers"]
-
-    job = await create_test_job(client, company_id, headers=manager_a_headers)
-    job_id = job["job_id"]
-
-    # Creating an application with an employee
-    employee_headers = await create_test_employee_user(client)
-    application_result = await create_test_application(client, job_id, employee_headers)
-    application_id = application_result["application_id"]
-
-    # Creating Manager B (different manager)
-    manager_b_headers = await get_token_from_logged_user(
-        client,
-        username=f"manager_b_{uuid.uuid4().hex[:8]}",
-        role="manager"
-    )
-
-    # Manager B tries to update the application status
-    response = await client.patch(
-        f"/jobs/{job_id}/applications/{application_id}",
-        json={"status": "accepted"},
-        headers=manager_b_headers
-    )
-    assert response.status_code == 401
+    assert response.status_code == 403  # Changed from 401 to 403 (authenticated but not authorized)
     assert response.json()["detail"] == "You are not authorized to access this company."
 
 
@@ -850,7 +815,6 @@ async def test_create_application_missing_fields_fail(client: AsyncClient):
 # ------ Cover_letter too short ------
 @pytest.mark.asyncio
 async def test_create_application_short_cover_letter_fail(client: AsyncClient):
-    """Sad: cover_letter too short (e.g., 2 chars) -> 422."""
     
     # Creating a company and a job with a manager
     company = await create_test_company(client)
@@ -879,7 +843,6 @@ async def test_create_application_short_cover_letter_fail(client: AsyncClient):
 # ------ Invalid status value ------
 @pytest.mark.asyncio
 async def test_update_application_invalid_status_fail(client: AsyncClient):
-    """Sad: Send invalid status (e.g., "maybe") -> 422."""
     
     # Creating a company and a job with a manager
     company = await create_test_company(client)

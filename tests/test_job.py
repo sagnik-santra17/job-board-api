@@ -2,8 +2,7 @@ import uuid
 import pytest
 from httpx import AsyncClient
 
-
-from tests.test_helper import create_test_company, create_test_job, get_token_from_logged_user
+from tests.test_helper import create_test_company, create_test_employee_user, create_test_job, get_token_from_logged_user
 
 # ----------------------------------------------------------------------------
 # HAPPY TESTS (Successful flows)
@@ -308,8 +307,8 @@ async def test_create_job_company_other_manager_fail(client: AsyncClient):
         headers=manager_b_header
     )
     
-    # Assert 401 Unauthorized
-    assert response.status_code == 401
+    # Assert 403 Forbidden (authenticated but not authorized)
+    assert response.status_code == 403
     assert response.json()["detail"] == "You are not authorized to access this company."
 
 
@@ -403,7 +402,7 @@ async def test_list_jobs_other_company_fail(client: AsyncClient):
         headers=manager_b_header
     )
     
-    assert response.status_code == 401
+    assert response.status_code == 403
     assert response.json()["detail"] == "You are not authorized to access this company."
 
 
@@ -452,7 +451,7 @@ async def test_get_job_other_company_fail(client: AsyncClient):
         headers=manager_b_header
     )
     
-    assert response.status_code == 401
+    assert response.status_code == 403
     assert response.json()["detail"] == "You are not authorized to access this company."
 
 
@@ -519,7 +518,7 @@ async def test_update_job_other_company_fail(client: AsyncClient):
         headers=manager_b_header
     )
     
-    assert response.status_code == 401
+    assert response.status_code == 403
     assert response.json()["detail"] == "You are not authorized to access this company."
 
 
@@ -626,7 +625,7 @@ async def test_delete_job_other_company_fail(client: AsyncClient):
         headers=manager_b_header
     )
     
-    assert response.status_code == 401
+    assert response.status_code == 403
     assert response.json()["detail"] == "You are not authorized to access this company."
 
 
@@ -650,3 +649,93 @@ async def test_delete_job_without_token_fail(client: AsyncClient):
     
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
+
+
+# -------------------------------------------------------------------- #
+# -------------------------------------------------------------------- #
+# Tests for the public route that allows employees to see job postings 
+# -------------------------------------------------------------------- #
+# -------------------------------------------------------------------- #
+
+
+# Happy path: Employee can see all jobs where is_active=True across companies
+@pytest.mark.asyncio
+async def test_employee_list_active_jobs_success(client: AsyncClient):
+
+    # Create a company and two jobs (one active, one inactive)
+    company = await create_test_company(client)
+    company_id = company["company_id"]
+    manager_headers = company["headers"]
+
+    # Create active job (default)
+    active_job = await create_test_job(client, company_id, headers=manager_headers)
+
+    # Create inactive job and update it
+    inactive_job = await create_test_job(client, company_id, headers=manager_headers)
+    inactive_job_id = inactive_job["job_id"]
+    await client.patch(
+        f"/companies/{company_id}/jobs/{inactive_job_id}",
+        json={"is_active": False},
+        headers=manager_headers
+    )
+
+    # Get employee token (different user, role="employee")
+    employee_headers = await create_test_employee_user(client)
+
+    # GET /jobs?skip=0&limit=10 (use trailing slash to avoid redirect)
+    response = await client.get("/jobs/?skip=0&limit=10", headers=employee_headers)
+    assert response.status_code == 200
+    data = response.json()
+
+    # Verify that the active job appears and the inactive job does not.
+    job_ids = [job["job_id"] for job in data]
+    assert active_job["job_id"] in job_ids
+    assert inactive_job["job_id"] not in job_ids
+
+    # Verify the active job has is_active=True
+    for job in data:
+        if job["job_id"] == active_job["job_id"]:
+            assert job["is_active"] is True
+
+
+# Sad path: GET /jobs requires authentication – returns 401 if no token
+@pytest.mark.asyncio
+async def test_unauthenticated_list_jobs_fail(client: AsyncClient):
+
+    response = await client.get("/jobs/?skip=0&limit=10")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+# Sad path: skip and limit parameters return the correct subset
+@pytest.mark.asyncio
+async def test_list_jobs_pagination_works(client: AsyncClient):
+
+    # Create a company and 5 active jobs
+    company = await create_test_company(client)
+    company_id = company["company_id"]
+    manager_headers = company["headers"]
+
+    job_ids = []
+    for _ in range(5):
+        job = await create_test_job(client, company_id, headers=manager_headers)
+        job_ids.append(job["job_id"])
+
+    employee_headers = await create_test_employee_user(client)
+
+    # Fetch first 2 jobs (skip=0, limit=2)
+    response = await client.get("/jobs/?skip=0&limit=2", headers=employee_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+
+    # Fetch next 2 jobs (skip=2, limit=2)
+    response2 = await client.get("/jobs/?skip=2&limit=2", headers=employee_headers)
+    assert response2.status_code == 200
+    data2 = response2.json()
+    assert len(data2) == 2
+
+    # Verify no overlap
+    ids1 = {job["job_id"] for job in data}
+    ids2 = {job["job_id"] for job in data2}
+    assert ids1.isdisjoint(ids2)

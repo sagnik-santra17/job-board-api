@@ -3,10 +3,7 @@ from dns import update
 import pytest
 from httpx import AsyncClient
 
-
 from tests.test_helper import create_test_company, get_token_from_logged_user
-
-
 
 # ----------------------------------------------------------------------------
 # HAPPY TESTS (Successful flows)
@@ -39,7 +36,6 @@ async def test_create_company_success(client: AsyncClient):
     assert data["company_description"] == company_data["company_description"]
     assert "company_id" in data
         
-    
 
 # ------ List All Companies – manager retrieves their own companies ------
 @pytest.mark.asyncio
@@ -53,7 +49,6 @@ async def test_list_companies_success(client: AsyncClient):
     
     assert any(c["company_name"] == result["company"]["company_name"] for c in data)
     
-
 
 # ------ Get Single Company – manager fetches own company ------
 @pytest.mark.asyncio
@@ -99,7 +94,6 @@ async def test_update_company_success(client: AsyncClient):
     assert "company_id" in data
 
 
-
 # ------ Delete Company – manager deletes own company ------
 @pytest.mark.asyncio
 async def test_delete_company_success(client: AsyncClient):
@@ -111,7 +105,6 @@ async def test_delete_company_success(client: AsyncClient):
 
     assert response.status_code == 200
     assert response.json() == {"message": "company deleted successfully"}
-
 
 
 # ----------------------------------------------------------------------------
@@ -181,7 +174,6 @@ async def test_create_company_invalid_token_fail(client: AsyncClient):
     assert response.json()["detail"] == "Incorrect username or password"
 
 
-
 # ------ Creation failures ------
 
 # ------ Duplicate company name ------
@@ -215,7 +207,6 @@ async def test_create_company_duplicate_name_fail(client: AsyncClient):
     assert "Company name" in response.json()["detail"]
 
 
-
 # ------ Duplicate company email ------
 @pytest.mark.asyncio
 async def test_create_company_duplicate_email_fail(client: AsyncClient):
@@ -245,7 +236,6 @@ async def test_create_company_duplicate_email_fail(client: AsyncClient):
     assert response.status_code == 409
 
     assert "Company email" in response.json()["detail"]
-
 
 
 # ------ Invalid phone number ------
@@ -289,7 +279,6 @@ async def test_create_company_missing_fields_fail(client: AsyncClient):
     assert response.json()["detail"][0]["msg"] == "Field required"
 
 
-
 # ------ Read/List failures ------
 
 # ------ Get non-existent company ------
@@ -319,7 +308,7 @@ async def test_get_company_other_manager_fail(client: AsyncClient):
 
     # Try to get the company with Manager B's token
     response = await client.get(f"/companies/{company_id_of_manager_1}", headers=header_2)
-    assert response.status_code == 401
+    assert response.status_code == 403  # Changed from 401 to 403 (authenticated but not authorized)
 
     assert response.json()["detail"] == "You are not authorized to access this company."
 
@@ -357,7 +346,7 @@ async def test_update_company_other_manager_fail(client: AsyncClient):
     }
 
     response = await client.patch(f"/companies/{company_id_of_manager_1}", json=update_data, headers=header_2)
-    assert response.status_code == 401
+    assert response.status_code == 403  # Changed from 401 to 403 (authenticated but not authorized)
 
     assert response.json()["detail"] == "You are not authorized to access this company."
 
@@ -433,7 +422,6 @@ async def test_update_company_duplicate_email_fail(client: AsyncClient):
     assert "Company already exists with email" in response.json()["detail"]
 
 
-
 # ------ Update with invalid phone number ------
 @pytest.mark.asyncio
 async def test_update_company_invalid_phone_fail(client: AsyncClient):
@@ -466,9 +454,9 @@ async def test_update_company_without_token_fail(client: AsyncClient):
         headers={"Authorization": "InvalidToken"}
     )
 
+    # This is an authentication failure (invalid token), so 401 is correct
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
-
 
 
 # ------ Delete failures ------
@@ -500,7 +488,7 @@ async def test_delete_company_other_manager_fail(client: AsyncClient):
 
     # Try to delete the company with Manager B's token
     response = await client.delete(f"/companies/{company_id_of_manager_1}", headers=header_2)
-    assert response.status_code == 401
+    assert response.status_code == 403  # Changed from 401 to 403 (authenticated but not authorized)
 
     assert response.json()["detail"] == "You are not authorized to access this company."
 
@@ -513,5 +501,6 @@ async def test_delete_company_without_token_fail(client: AsyncClient):
         headers={"Authorization": "InvalidToken"}
     )
 
+    # This is an authentication failure (invalid token), so 401 is correct
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
