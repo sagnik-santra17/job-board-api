@@ -17,6 +17,7 @@ from app.modules.jobs.job_router import public_router as job_public_router
 
 from app.api.dependencies import redis_client
 from app.core.database import async_engine
+from app.core.config import settings
 
 
 from app.modules.users.user_model import User
