@@ -28,10 +28,9 @@ from app.modules.applications.application_model import JobApplication
 
 # -------------------------------------------------------------------------------------------------------------- #
 
-
-# ---------- Logging Setup (file only, like your previous project) ---------- #
+# ---------- Logging Setup ---------- #
 logging.basicConfig(
-    filename="app.log",
+    stream=sys.stdout,
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
