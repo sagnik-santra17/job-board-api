@@ -59,17 +59,10 @@ app = FastAPI(
 
 
 # ---------- CORS Middleware ---------- #
-origins = [
-    "http://localhost.tiangolo.com",
-    "https://localhost.tiangolo.com",
-    "http://localhost",
-    "http://localhost:8080",
-    # Add production frontend domains here when deployed
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.cors_origins_list, 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
